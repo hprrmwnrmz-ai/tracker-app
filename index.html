@@ -2,10 +2,172 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>App</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tracker</title>
+
+<style>
+body {
+  margin:0;
+  font-family: system-ui;
+  background:#000;
+  color:#fff;
+  padding:16px;
+}
+.container {
+  max-width:500px;
+  margin:auto;
+}
+input, button {
+  width:100%;
+  padding:12px;
+  margin-top:8px;
+  border-radius:10px;
+  border:none;
+  font-size:16px;
+}
+input { background:#222; color:white; }
+button { background:white; color:black; font-weight:600; }
+.card {
+  background:#111;
+  padding:12px;
+  border-radius:12px;
+  margin-top:12px;
+}
+.small {
+  opacity:.6;
+  font-size:12px;
+}
+</style>
 </head>
-<body style="background:black;color:white;font-family:sans-serif;padding:20px;">
-<h1>App Loaded Successfully</h1>
-<p>If you see this, GitHub Pages is working.</p>
+
+<body>
+
+<div class="container">
+
+<h2>Tracker</h2>
+
+<button onclick="toggleView()">View Medication Level</button>
+
+<div id="mainView">
+
+<input id="weightInput" placeholder="Weight (lbs)">
+<button onclick="addWeight()">Add Weight</button>
+
+<input id="doseInput" placeholder="Dose (mg)">
+<button onclick="addInjection()">Add Injection</button>
+
+<div id="summary" class="card"></div>
+<div id="entries"></div>
+
+</div>
+
+<div id="levelView" style="display:none">
+
+<button onclick="toggleView()">Back</button>
+
+<div class="card">
+<div>Current Medication Level</div>
+<div id="levelValue" style="font-size:28px;font-weight:bold;"></div>
+<div class="small">Half-life model (5 days)</div>
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+const HALF_LIFE_HOURS = 120;
+const k = Math.log(2) / HALF_LIFE_HOURS;
+
+let weights = load("weights", []);
+let injections = load("injections", []);
+let view = "main";
+
+function load(key, fallback){
+  try {
+    return JSON.parse(localStorage.getItem(key)) || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function save(key, data){
+  localStorage.setItem(key, JSON.stringify(data));
+}
+
+function addWeight(){
+  const val = parseFloat(document.getElementById("weightInput").value);
+  if(!val) return;
+
+  weights.push({
+    time: Date.now(),
+    weight: val
+  });
+
+  save("weights", weights);
+  document.getElementById("weightInput").value = "";
+  render();
+}
+
+function addInjection(){
+  const val = parseFloat(document.getElementById("doseInput").value);
+  if(!val) return;
+
+  injections.push({
+    time: Date.now(),
+    dose: val
+  });
+
+  save("injections", injections);
+  document.getElementById("doseInput").value = "";
+  render();
+}
+
+function calcLevel(){
+  const now = Date.now();
+  let total = 0;
+
+  injections.forEach(i=>{
+    const dt = (now - i.time) / (1000*60*60);
+    if(dt >= 0){
+      total += i.dose * Math.exp(-k * dt);
+    }
+  });
+
+  return total.toFixed(2);
+}
+
+function toggleView(){
+  view = view === "main" ? "level" : "main";
+  document.getElementById("mainView").style.display = view==="main"?"block":"none";
+  document.getElementById("levelView").style.display = view==="level"?"block":"none";
+  render();
+}
+
+function render(){
+
+  document.getElementById("summary").innerHTML =
+    weights.length + " weights • " + injections.length + " injections";
+
+  const list = document.getElementById("entries");
+  list.innerHTML = "";
+
+  weights.slice().reverse().forEach(w=>{
+    const div = document.createElement("div");
+    div.className = "card";
+    div.innerHTML =
+      new Date(w.time).toLocaleString() + "<br>" +
+      w.weight + " lbs";
+    list.appendChild(div);
+  });
+
+  document.getElementById("levelValue").innerText = calcLevel();
+}
+
+render();
+
+</script>
+
 </body>
 </html>
